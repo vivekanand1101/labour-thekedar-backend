@@ -75,70 +75,66 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// API v1 routes
-	v1 := r.Group("/api/v1")
+	// Auth routes (public)
+	auth := r.Group("/auth")
 	{
-		// Auth routes (public)
-		auth := v1.Group("/auth")
+		auth.POST("/send-otp", authHandler.SendOTP)
+		auth.POST("/verify-otp", authHandler.VerifyOTP)
+		auth.POST("/refresh", authHandler.RefreshToken)
+	}
+
+	// Protected routes
+	protected := r.Group("")
+	protected.Use(middleware.AuthMiddleware(authService))
+	{
+		// Projects
+		projects := protected.Group("/projects")
 		{
-			auth.POST("/send-otp", authHandler.SendOTP)
-			auth.POST("/verify-otp", authHandler.VerifyOTP)
-			auth.POST("/refresh", authHandler.RefreshToken)
+			projects.GET("", projectHandler.List)
+			projects.POST("", projectHandler.Create)
+			projects.GET("/:id", projectHandler.Get)
+			projects.PUT("/:id", projectHandler.Update)
+			projects.DELETE("/:id", projectHandler.Delete)
+
+			// Project labours
+			projects.GET("/:id/labours", labourHandler.ListByProject)
+			projects.POST("/:id/labours", labourHandler.AssignToProject)
+			projects.DELETE("/:id/labours/:labour_id", labourHandler.RemoveFromProject)
+
+			// Project attendance
+			projects.GET("/:id/attendance", workDayHandler.List)
+			projects.POST("/:id/attendance", workDayHandler.Create)
+
+			// Project payments
+			projects.GET("/:id/payments", paymentHandler.ListByProject)
+			projects.POST("/:id/payments", paymentHandler.Create)
+
+			// Labour balance in project
+			projects.GET("/:id/labours/:labour_id/balance", paymentHandler.GetBalance)
 		}
 
-		// Protected routes
-		protected := v1.Group("")
-		protected.Use(middleware.AuthMiddleware(authService))
+		// Labours
+		labours := protected.Group("/labours")
 		{
-			// Projects
-			projects := protected.Group("/projects")
-			{
-				projects.GET("", projectHandler.List)
-				projects.POST("", projectHandler.Create)
-				projects.GET("/:id", projectHandler.Get)
-				projects.PUT("/:id", projectHandler.Update)
-				projects.DELETE("/:id", projectHandler.Delete)
+			labours.GET("", labourHandler.List)
+			labours.POST("", labourHandler.Create)
+			labours.GET("/:id", labourHandler.Get)
+			labours.PUT("/:id", labourHandler.Update)
+			labours.DELETE("/:id", labourHandler.Delete)
+			labours.GET("/:id/payments", paymentHandler.ListByLabour)
+		}
 
-				// Project labours
-				projects.GET("/:id/labours", labourHandler.ListByProject)
-				projects.POST("/:id/labours", labourHandler.AssignToProject)
-				projects.DELETE("/:id/labours/:labour_id", labourHandler.RemoveFromProject)
+		// Attendance (for update/delete by ID)
+		attendance := protected.Group("/attendance")
+		{
+			attendance.PUT("/:id", workDayHandler.Update)
+			attendance.DELETE("/:id", workDayHandler.Delete)
+		}
 
-				// Project attendance
-				projects.GET("/:id/attendance", workDayHandler.List)
-				projects.POST("/:id/attendance", workDayHandler.Create)
-
-				// Project payments
-				projects.GET("/:id/payments", paymentHandler.ListByProject)
-				projects.POST("/:id/payments", paymentHandler.Create)
-
-				// Labour balance in project
-				projects.GET("/:id/labours/:labour_id/balance", paymentHandler.GetBalance)
-			}
-
-			// Labours
-			labours := protected.Group("/labours")
-			{
-				labours.GET("", labourHandler.List)
-				labours.POST("", labourHandler.Create)
-				labours.GET("/:id", labourHandler.Get)
-				labours.PUT("/:id", labourHandler.Update)
-				labours.DELETE("/:id", labourHandler.Delete)
-				labours.GET("/:id/payments", paymentHandler.ListByLabour)
-			}
-
-			// Attendance (for update/delete by ID)
-			attendance := protected.Group("/attendance")
-			{
-				attendance.PUT("/:id", workDayHandler.Update)
-				attendance.DELETE("/:id", workDayHandler.Delete)
-			}
-
-			// Payments (for delete by ID)
-			payments := protected.Group("/payments")
-			{
-				payments.DELETE("/:id", paymentHandler.Delete)
-			}
+		// Payments (for delete by ID)
+		payments := protected.Group("/payments")
+		{
+			payments.DELETE("/:id", paymentHandler.Delete)
 		}
 	}
 
